@@ -1,0 +1,9 @@
+.env
+*.db
+.claude/
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.idea/
