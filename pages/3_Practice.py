@@ -102,7 +102,13 @@ if task_text:
                             progress.status = ProgressStatus.CONFIDENT
                     if result["weak_areas"] and result["weak_areas"].lower() != "none":
                         existing = progress.weak_areas or ""
-                        progress.weak_areas = f"{existing}\n{result['weak_areas']}".strip()
+                        _parts = set()
+                        for _blob in (existing, result["weak_areas"]):
+                            for _item in _blob.replace(",", "\n").split("\n"):
+                                _item = _item.strip()
+                                if _item:
+                                    _parts.add(_item)
+                        progress.weak_areas = ", ".join(sorted(_parts))
 
                     history = SessionHistory(
                         subtopic_id=selected_sub.id,

@@ -304,7 +304,13 @@ if submitted:
             # Update progress weak areas
             if progress and all_weak:
                 existing = progress.weak_areas or ""
-                progress.weak_areas = f"{existing}\n{all_weak}".strip()
+                _parts = set()
+                for _blob in (existing, all_weak):
+                    for _item in _blob.replace(",", "\n").split("\n"):
+                        _item = _item.strip()
+                        if _item:
+                            _parts.add(_item)
+                progress.weak_areas = ", ".join(sorted(_parts))
 
             # Update progress status based on score
             if progress and score_pct >= 80 and progress.status in (
