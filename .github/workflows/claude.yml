@@ -40,6 +40,7 @@ jobs:
           use_bedrock: "true"
           claude_args: "--model eu.anthropic.claude-sonnet-4-6"
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          show_full_output: true
           prompt: |
             Review this pull request for:
             - Code correctness and potential bugs
