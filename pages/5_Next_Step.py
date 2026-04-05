@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from db.database import get_session
 from db.models import Topic, Subtopic, Progress, ProgressStatus
-from utils import REVIEW_DAYS, as_utc
+from utils import REVIEW_DAYS, REVIEW_SCORE_BOOST, as_utc
 
 st.title("Next Step")
 
@@ -43,7 +43,7 @@ def calculate_next_step_score(sub, progress):
     elif progress.status == ProgressStatus.CONFIDENT:
         # Only review-due Confident items reach this function (others are filtered
         # out before the scoring loop), so this branch always means review-due.
-        score -= 15  # surface for review
+        score -= REVIEW_SCORE_BOOST  # surface for review
 
     # Boost items with weak areas
     if progress and progress.weak_areas:
@@ -82,7 +82,7 @@ else:
     reasons = []
     if is_review:
         updated = as_utc(best_progress.updated_at)
-        days_ago = int((datetime.now(timezone.utc) - updated).total_seconds() / 86400) if updated else "?"
+        days_ago = int((datetime.now(timezone.utc) - updated).total_seconds() / 86400)
         reasons.append(f"Previously Confident — due for review after {days_ago} days.")
     if best_sub.priority_score <= 4:
         reasons.append("This is a foundational topic (Tier 1) — other topics build on it.")

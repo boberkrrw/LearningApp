@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 from db.database import get_session
 from db.models import Topic, Subtopic, Progress, ProgressStatus, SessionHistory
 from utils import parse_weak_areas, REVIEW_DAYS, as_utc
@@ -12,7 +13,12 @@ st.title("Dashboard")
 session = get_session()
 
 # Gather stats — single GROUP BY query instead of 4 separate COUNTs
-subtopics = session.query(Subtopic).order_by(Subtopic.priority_score).all()
+subtopics = (
+    session.query(Subtopic)
+    .options(joinedload(Subtopic.progress))
+    .order_by(Subtopic.priority_score)
+    .all()
+)
 subtopics_by_id = {sub.id: sub for sub in subtopics}
 total = len(subtopics)
 
@@ -140,7 +146,7 @@ col_weak_hdr, col_weak_btn = st.columns([3, 1])
 with col_weak_hdr:
     st.subheader("Weak Areas")
 
-weak_progress = session.query(Progress).filter(Progress.weak_areas.isnot(None), Progress.weak_areas != "").all()
+weak_progress = [sub.progress for sub in subtopics if sub.progress and sub.progress.weak_areas]
 
 with col_weak_btn:
     clear_clicked = st.button("🗑 Clear All", key="clear_weak_areas", disabled=not weak_progress)
