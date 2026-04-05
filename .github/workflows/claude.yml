@@ -38,7 +38,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           use_bedrock: "true"
-          claude_args: "--model eu.anthropic.claude-sonnet-4-6 --dangerouslySkipPermissions"
+          claude_args: "--model eu.anthropic.claude-sonnet-4-6"
           github_token: ${{ secrets.GITHUB_TOKEN }}
           show_full_output: true
           prompt: |
