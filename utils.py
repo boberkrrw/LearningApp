@@ -1,5 +1,8 @@
 import re
 
+# Shared threshold for spaced-repetition review; used by Dashboard and Next Step.
+REVIEW_DAYS = 7
+
 
 def parse_weak_areas(blob: str) -> list:
     """Split, deduplicate (order-preserving), and return weak area strings.

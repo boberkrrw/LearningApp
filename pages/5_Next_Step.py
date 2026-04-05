@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from db.database import get_session
 from db.models import Topic, Subtopic, Progress, ProgressStatus
+from utils import REVIEW_DAYS
 
 st.title("Next Step")
 
@@ -15,9 +16,10 @@ all_progress = session.query(Progress).all()
 progress_by_subtopic = {p.subtopic_id: p for p in all_progress}
 all_topics = session.query(Topic).all()
 topics_by_id = {t.id: t for t in all_topics}
+# Assumes subtopic names are unique; last writer wins if duplicates exist.
 subtopics_by_name = {s.name: s for s in subtopics}
 
-REVIEW_CUTOFF = datetime.now(timezone.utc) - timedelta(days=7)
+REVIEW_CUTOFF = datetime.now(timezone.utc) - timedelta(days=REVIEW_DAYS)
 
 
 def _tz(dt):
@@ -48,7 +50,7 @@ def calculate_next_step_score(sub, progress):
         if is_review_due(progress):
             score -= 15  # surface overdue review items
         else:
-            score += 100  # deprioritize: recently studied
+            score += 100  # deprioritize: Confident, not due for review
 
     # Boost items with weak areas
     if progress and progress.weak_areas:

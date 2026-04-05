@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import func
 from db.database import get_session
 from db.models import Topic, Subtopic, Progress, ProgressStatus, SessionHistory
-from utils import parse_weak_areas
+from utils import parse_weak_areas, REVIEW_DAYS
 
 st.title("Dashboard")
 
@@ -115,11 +115,9 @@ for topic in topics:
             icon = status_colors.get(status_label, "⚪")
             st.markdown(f"{icon} **{sub.name}** — {status_label} (Senior req: {sub.senior_level})")
 
-st.divider()
-
 # Due for Review — push cutoff filter to SQL; SQLite stores datetimes as naive UTC
 _now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-review_cutoff_naive = _now_naive - timedelta(days=7)
+review_cutoff_naive = _now_naive - timedelta(days=REVIEW_DAYS)
 
 review_due_rows = (
     session.query(Progress)
@@ -131,11 +129,12 @@ review_due_rows = (
 )
 
 if review_due_rows:
+    st.divider()
     st.subheader("Due for Review")
-    st.caption("These subtopics reached Confident status but haven't been practiced in over 7 days.")
+    st.caption(f"These subtopics reached Confident status but haven't been practiced in over {REVIEW_DAYS} days.")
     for p in review_due_rows:
         sub = subtopics_by_id.get(p.subtopic_id)
-        if sub:
+        if sub and p.updated_at is not None:
             days_ago = (_now_naive - p.updated_at).days
             st.warning(f"🔁 **{sub.name}** — last reviewed {days_ago} day{'s' if days_ago != 1 else ''} ago")
     st.divider()
