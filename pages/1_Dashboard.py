@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import func
 from db.database import get_session
 from db.models import Topic, Subtopic, Progress, ProgressStatus, SessionHistory
-from utils import parse_weak_areas, REVIEW_DAYS
+from utils import parse_weak_areas, REVIEW_DAYS, _tz
 
 st.title("Dashboard")
 
@@ -51,7 +51,7 @@ learning_pcts = []
 not_started_pcts = []
 
 for topic in topics:
-    t_subs = subtopics_by_topic[topic.id]
+    t_subs = subtopics_by_topic.get(topic.id, [])
     if not t_subs:
         continue
     t_total = len(t_subs)
@@ -92,7 +92,7 @@ st.divider()
 st.subheader("Progress by Topic")
 
 for topic in topics:
-    topic_subtopics = subtopics_by_topic[topic.id]
+    topic_subtopics = subtopics_by_topic.get(topic.id, [])
     if not topic_subtopics:
         continue
 
@@ -115,28 +115,24 @@ for topic in topics:
             icon = status_colors.get(status_label, "⚪")
             st.markdown(f"{icon} **{sub.name}** — {status_label} (Senior req: {sub.senior_level})")
 
-# Due for Review — push cutoff filter to SQL; SQLite stores datetimes as naive UTC
-_now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-review_cutoff_naive = _now_naive - timedelta(days=REVIEW_DAYS)
+# Due for Review — derived from already-loaded subtopics, no extra DB query.
+# Uses timezone-aware comparison via _tz() consistent with Next Step's approach.
+review_cutoff = datetime.now(timezone.utc) - timedelta(days=REVIEW_DAYS)
+review_due_subs = [
+    sub for sub in subtopics
+    if sub.progress
+    and sub.progress.status == ProgressStatus.CONFIDENT
+    and _tz(sub.progress.updated_at) is not None
+    and _tz(sub.progress.updated_at) < review_cutoff
+]
 
-review_due_rows = (
-    session.query(Progress)
-    .filter(
-        Progress.status == ProgressStatus.CONFIDENT,
-        Progress.updated_at < review_cutoff_naive,
-    )
-    .all()
-)
-
-if review_due_rows:
+if review_due_subs:
     st.divider()
     st.subheader("Due for Review")
     st.caption(f"These subtopics reached Confident status but haven't been practiced in over {REVIEW_DAYS} days.")
-    for p in review_due_rows:
-        sub = subtopics_by_id.get(p.subtopic_id)
-        if sub and p.updated_at is not None:
-            days_ago = (_now_naive - p.updated_at).days
-            st.warning(f"🔁 **{sub.name}** — last reviewed {days_ago} day{'s' if days_ago != 1 else ''} ago")
+    for sub in review_due_subs:
+        days_ago = (datetime.now(timezone.utc) - _tz(sub.progress.updated_at)).days
+        st.warning(f"🔁 **{sub.name}** — last reviewed {days_ago} day{'s' if days_ago != 1 else ''} ago")
     st.divider()
 
 # Weak areas summary — deduped bullet list per subtopic, with Clear All
@@ -150,10 +146,22 @@ with col_weak_btn:
     clear_clicked = st.button("🗑 Clear All", key="clear_weak_areas", disabled=not weak_progress)
 
 if clear_clicked:
-    for p in weak_progress:
-        p.weak_areas = None
-    session.commit()
-    st.rerun()
+    st.session_state["confirm_clear_weak"] = True
+
+if st.session_state.get("confirm_clear_weak"):
+    st.warning("This will permanently delete all weak area feedback for every subtopic. Are you sure?")
+    col_yes, col_no = st.columns(2)
+    with col_yes:
+        if st.button("✅ Yes, clear all", key="confirm_clear_yes"):
+            for p in weak_progress:
+                p.weak_areas = None
+            session.commit()
+            st.session_state.pop("confirm_clear_weak", None)
+            st.rerun()
+    with col_no:
+        if st.button("❌ Cancel", key="confirm_clear_no"):
+            st.session_state.pop("confirm_clear_weak", None)
+            st.rerun()
 
 if weak_progress:
     for p in weak_progress:

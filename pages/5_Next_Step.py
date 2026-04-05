@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from db.database import get_session
 from db.models import Topic, Subtopic, Progress, ProgressStatus
-from utils import REVIEW_DAYS
+from utils import REVIEW_DAYS, _tz
 
 st.title("Next Step")
 
@@ -19,21 +19,12 @@ topics_by_id = {t.id: t for t in all_topics}
 # Assumes subtopic names are unique; last writer wins if duplicates exist.
 subtopics_by_name = {s.name: s for s in subtopics}
 
-REVIEW_CUTOFF = datetime.now(timezone.utc) - timedelta(days=REVIEW_DAYS)
-
-
-def _tz(dt):
-    """Return dt with UTC tzinfo, handling SQLite naive datetimes."""
-    if dt and dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt
-
-
 def is_review_due(progress):
     if not progress or progress.status != ProgressStatus.CONFIDENT:
         return False
+    review_cutoff = datetime.now(timezone.utc) - timedelta(days=REVIEW_DAYS)
     updated = _tz(progress.updated_at)
-    return updated is not None and updated < REVIEW_CUTOFF
+    return updated is not None and updated < review_cutoff
 
 
 def calculate_next_step_score(sub, progress):

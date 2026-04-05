@@ -305,7 +305,7 @@ if submitted:
             # Update progress weak areas
             if progress and all_weak:
                 combined = (progress.weak_areas or "") + "\n" + all_weak
-                progress.weak_areas = ", ".join(sorted(parse_weak_areas(combined)))
+                progress.weak_areas = ", ".join(parse_weak_areas(combined))
 
             # Update progress status based on score
             if progress and score_pct >= 80 and progress.status in (

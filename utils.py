@@ -1,7 +1,17 @@
 import re
+from datetime import timezone
 
 # Shared threshold for spaced-repetition review; used by Dashboard and Next Step.
 REVIEW_DAYS = 7
+
+
+def _tz(dt):
+    """Return dt with UTC tzinfo, handling SQLite naive datetimes. Returns None if dt is None."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def parse_weak_areas(blob: str) -> list:

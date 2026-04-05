@@ -103,7 +103,7 @@ if task_text:
                             progress.status = ProgressStatus.CONFIDENT
                     if result["weak_areas"] and result["weak_areas"].lower() != "none":
                         combined = (progress.weak_areas or "") + "\n" + result["weak_areas"]
-                        progress.weak_areas = ", ".join(sorted(parse_weak_areas(combined)))
+                        progress.weak_areas = ", ".join(parse_weak_areas(combined))
 
                     history = SessionHistory(
                         subtopic_id=selected_sub.id,
