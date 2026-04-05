@@ -122,8 +122,9 @@ else:
 
         if deps:
             st.markdown("#### Prerequisites")
+            subtopics_by_name = {s.name: s for s in subtopics}
             for dep in deps:
-                dep_sub = next((s for s in subtopics if s.name == dep), None)
+                dep_sub = subtopics_by_name.get(dep)
                 if dep_sub and dep_sub.progress:
                     icon = "✅" if dep_sub.progress.status == ProgressStatus.CONFIDENT else "⚠️"
                     st.markdown(f"- {icon} {dep} ({dep_sub.progress.status.value})")

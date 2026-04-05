@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from db.database import get_session
 from db.models import Topic, Subtopic, Task, TaskType, TaskStatus, Progress, ProgressStatus, SessionHistory
 from ai.claude_client import generate_task, evaluate_answer
+from utils import parse_weak_areas
 
 st.title("Practice")
 
@@ -101,14 +102,8 @@ if task_text:
                         if progress.tasks_completed >= 6:
                             progress.status = ProgressStatus.CONFIDENT
                     if result["weak_areas"] and result["weak_areas"].lower() != "none":
-                        existing = progress.weak_areas or ""
-                        _parts = set()
-                        for _blob in (existing, result["weak_areas"]):
-                            for _item in _blob.replace(",", "\n").split("\n"):
-                                _item = _item.strip()
-                                if _item:
-                                    _parts.add(_item)
-                        progress.weak_areas = ", ".join(sorted(_parts))
+                        combined = (progress.weak_areas or "") + "\n" + result["weak_areas"]
+                        progress.weak_areas = ", ".join(sorted(set(parse_weak_areas(combined))))
 
                     history = SessionHistory(
                         subtopic_id=selected_sub.id,

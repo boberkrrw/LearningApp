@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import func
 from db.database import get_session
 from db.models import Topic, Subtopic, Progress, ProgressStatus, SessionHistory
+from utils import parse_weak_areas
 
 st.title("Dashboard")
 
@@ -57,19 +58,23 @@ for topic in topics:
     t_conf  = sum(1 for s in t_subs if s.progress and s.progress.status == ProgressStatus.CONFIDENT)
     t_prac  = sum(1 for s in t_subs if s.progress and s.progress.status == ProgressStatus.PRACTICED)
     t_learn = sum(1 for s in t_subs if s.progress and s.progress.status == ProgressStatus.LEARNING)
-    t_ns    = t_total - t_conf - t_prac - t_learn
+    # Derive not-started as remainder to guarantee bars always sum to 100%
+    c_pct = round(t_conf  / t_total * 100)
+    p_pct = round(t_prac  / t_total * 100)
+    l_pct = round(t_learn / t_total * 100)
+    ns_pct = 100 - c_pct - p_pct - l_pct
     topic_names_chart.append(topic.name)
-    confident_pcts.append(round(t_conf  / t_total * 100))
-    practiced_pcts.append(round(t_prac  / t_total * 100))
-    learning_pcts.append(round(t_learn  / t_total * 100))
-    not_started_pcts.append(round(t_ns   / t_total * 100))
+    confident_pcts.append(c_pct)
+    practiced_pcts.append(p_pct)
+    learning_pcts.append(l_pct)
+    not_started_pcts.append(ns_pct)
 
 if topic_names_chart:
     fig = go.Figure()
-    fig.add_trace(go.Bar(name="Confident 🟢",   y=topic_names_chart, x=confident_pcts,    orientation="h", marker_color="#2ecc71"))
-    fig.add_trace(go.Bar(name="Practiced 🟠",   y=topic_names_chart, x=practiced_pcts,    orientation="h", marker_color="#e67e22"))
-    fig.add_trace(go.Bar(name="Learning 🟡",    y=topic_names_chart, x=learning_pcts,     orientation="h", marker_color="#f1c40f"))
-    fig.add_trace(go.Bar(name="Not Started 🔴", y=topic_names_chart, x=not_started_pcts,  orientation="h", marker_color="#e74c3c"))
+    fig.add_trace(go.Bar(name="Confident 🟢",   y=topic_names_chart, x=confident_pcts,   orientation="h", marker_color="#2ecc71"))
+    fig.add_trace(go.Bar(name="Practiced 🟠",   y=topic_names_chart, x=practiced_pcts,   orientation="h", marker_color="#e67e22"))
+    fig.add_trace(go.Bar(name="Learning 🟡",    y=topic_names_chart, x=learning_pcts,    orientation="h", marker_color="#f1c40f"))
+    fig.add_trace(go.Bar(name="Not Started 🔴", y=topic_names_chart, x=not_started_pcts, orientation="h", marker_color="#e74c3c"))
     fig.update_layout(
         barmode="stack",
         xaxis=dict(title="% of Subtopics", range=[0, 100]),
@@ -111,27 +116,31 @@ for topic in topics:
 
 st.divider()
 
-# Due for Review — Confident items not touched in >7 days
-review_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
-review_due = []
-for p in session.query(Progress).filter(Progress.status == ProgressStatus.CONFIDENT).all():
-    updated = p.updated_at
-    if updated and updated.tzinfo is None:
-        updated = updated.replace(tzinfo=timezone.utc)
-    if updated and updated < review_cutoff:
-        review_due.append((p, updated))
+# Due for Review — push cutoff filter to SQL; SQLite stores datetimes as naive UTC
+_now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+review_cutoff_naive = _now_naive - timedelta(days=7)
 
-if review_due:
+review_due_rows = (
+    session.query(Progress)
+    .filter(
+        Progress.status == ProgressStatus.CONFIDENT,
+        Progress.updated_at < review_cutoff_naive,
+    )
+    .all()
+)
+
+if review_due_rows:
     st.subheader("Due for Review")
     st.caption("These subtopics reached Confident status but haven't been practiced in over 7 days.")
-    for p, updated in review_due:
+    for p in review_due_rows:
         sub = subtopics_by_id.get(p.subtopic_id)
         if sub:
-            days_ago = (datetime.now(timezone.utc) - updated).days
+            updated_naive = p.updated_at or _now_naive
+            days_ago = (_now_naive - updated_naive).days
             st.warning(f"🔁 **{sub.name}** — last reviewed {days_ago} day{'s' if days_ago != 1 else ''} ago")
     st.divider()
 
-# Weak areas summary — deduped bullet list per subtopic
+# Weak areas summary — deduped bullet list per subtopic, with Clear All
 col_weak_hdr, col_weak_btn = st.columns([3, 1])
 with col_weak_hdr:
     st.subheader("Weak Areas")
@@ -152,13 +161,7 @@ if weak_progress:
         sub = subtopics_by_id.get(p.subtopic_id)
         if not sub:
             continue
-        _seen = set()
-        _parts = []
-        for _item in (p.weak_areas or "").replace(",", "\n").split("\n"):
-            _item = _item.strip()
-            if _item and _item not in _seen:
-                _seen.add(_item)
-                _parts.append(_item)
+        _parts = parse_weak_areas(p.weak_areas)
         if not _parts:
             continue
         with st.expander(f"**{sub.name}** — {len(_parts)} weak area{'s' if len(_parts) != 1 else ''}"):
@@ -178,11 +181,14 @@ with col_b:
     last_session = session.query(SessionHistory).order_by(SessionHistory.created_at.desc()).first()
     if last_session:
         sub = subtopics_by_id.get(last_session.subtopic_id) or session.query(Subtopic).get(last_session.subtopic_id)
-        page_map = {"learn": "pages/2_Learn.py", "practice": "pages/3_Practice.py", "evaluate": "pages/4_Evaluate.py"}
-        target = page_map.get(last_session.activity_type, "pages/2_Learn.py")
-        if st.button(f"🔄 Resume: {sub.name} ({last_session.activity_type})", use_container_width=True):
-            st.session_state["selected_subtopic_id"] = last_session.subtopic_id
-            st.switch_page(target)
+        if sub:
+            page_map = {"learn": "pages/2_Learn.py", "practice": "pages/3_Practice.py", "evaluate": "pages/4_Evaluate.py"}
+            target = page_map.get(last_session.activity_type, "pages/2_Learn.py")
+            if st.button(f"🔄 Resume: {sub.name} ({last_session.activity_type})", use_container_width=True):
+                st.session_state["selected_subtopic_id"] = last_session.subtopic_id
+                st.switch_page(target)
+        else:
+            st.button("🔄 Resume Last Session", use_container_width=True, disabled=True)
     else:
         st.button("🔄 Resume Last Session", use_container_width=True, disabled=True)
 
