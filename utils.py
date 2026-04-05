@@ -5,8 +5,8 @@ from datetime import timezone
 REVIEW_DAYS = 7
 
 
-def _tz(dt):
-    """Return dt with UTC tzinfo, handling SQLite naive datetimes. Returns None if dt is None."""
+def as_utc(dt):
+    """Return dt with UTC tzinfo attached, handling SQLite naive datetimes. Returns None if dt is None."""
     if dt is None:
         return None
     if dt.tzinfo is None:

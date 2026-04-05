@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from db.database import get_session
 from db.models import Topic, Subtopic, Progress, ProgressStatus
-from utils import REVIEW_DAYS, _tz
+from utils import REVIEW_DAYS, as_utc
 
 st.title("Next Step")
 
@@ -19,12 +19,15 @@ topics_by_id = {t.id: t for t in all_topics}
 # Assumes subtopic names are unique; last writer wins if duplicates exist.
 subtopics_by_name = {s.name: s for s in subtopics}
 
+# Computed once per page render (Streamlit reruns the whole script each interaction).
+_review_cutoff = datetime.now(timezone.utc) - timedelta(days=REVIEW_DAYS)
+
+
 def is_review_due(progress):
     if not progress or progress.status != ProgressStatus.CONFIDENT:
         return False
-    review_cutoff = datetime.now(timezone.utc) - timedelta(days=REVIEW_DAYS)
-    updated = _tz(progress.updated_at)
-    return updated is not None and updated < review_cutoff
+    updated = as_utc(progress.updated_at)
+    return updated is not None and updated < _review_cutoff
 
 
 def calculate_next_step_score(sub, progress):
@@ -79,7 +82,7 @@ else:
     # Determine reason
     reasons = []
     if is_review:
-        updated = _tz(best_progress.updated_at)
+        updated = as_utc(best_progress.updated_at)
         days_ago = (datetime.now(timezone.utc) - updated).days if updated else "?"
         reasons.append(f"Previously Confident — due for review after {days_ago} days.")
     if best_sub.priority_score <= 4:
@@ -118,9 +121,10 @@ else:
             st.markdown("#### Prerequisites")
             for dep in deps:
                 dep_sub = subtopics_by_name.get(dep)
-                if dep_sub and dep_sub.progress:
-                    icon = "✅" if dep_sub.progress.status == ProgressStatus.CONFIDENT else "⚠️"
-                    st.markdown(f"- {icon} {dep} ({dep_sub.progress.status.value})")
+                dep_progress = progress_by_subtopic.get(dep_sub.id) if dep_sub else None
+                if dep_progress:
+                    icon = "✅" if dep_progress.status == ProgressStatus.CONFIDENT else "⚠️"
+                    st.markdown(f"- {icon} {dep} ({dep_progress.status.value})")
                 else:
                     st.markdown(f"- ❓ {dep}")
 

@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import func
 from db.database import get_session
 from db.models import Topic, Subtopic, Progress, ProgressStatus, SessionHistory
-from utils import parse_weak_areas, REVIEW_DAYS, _tz
+from utils import parse_weak_areas, REVIEW_DAYS, as_utc
 
 st.title("Dashboard")
 
@@ -122,8 +122,8 @@ review_due_subs = [
     sub for sub in subtopics
     if sub.progress
     and sub.progress.status == ProgressStatus.CONFIDENT
-    and _tz(sub.progress.updated_at) is not None
-    and _tz(sub.progress.updated_at) < review_cutoff
+    and (updated_at := as_utc(sub.progress.updated_at)) is not None
+    and updated_at < review_cutoff
 ]
 
 if review_due_subs:
@@ -131,7 +131,7 @@ if review_due_subs:
     st.subheader("Due for Review")
     st.caption(f"These subtopics reached Confident status but haven't been practiced in over {REVIEW_DAYS} days.")
     for sub in review_due_subs:
-        days_ago = (datetime.now(timezone.utc) - _tz(sub.progress.updated_at)).days
+        days_ago = (datetime.now(timezone.utc) - as_utc(sub.progress.updated_at)).days
         st.warning(f"🔁 **{sub.name}** — last reviewed {days_ago} day{'s' if days_ago != 1 else ''} ago")
     st.divider()
 
