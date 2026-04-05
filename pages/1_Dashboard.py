@@ -124,8 +124,11 @@ for topic in topics:
 # Due for Review — derived from already-loaded subtopics, no extra DB query.
 # Uses timezone-aware comparison via _tz() consistent with Next Step's approach.
 review_cutoff = datetime.now(timezone.utc) - timedelta(days=REVIEW_DAYS)
+# Store (sub, updated_at) tuples so as_utc() is called once per item in the
+# filter and reused in the render loop — no double evaluation.
 review_due_subs = [
-    sub for sub in subtopics
+    (sub, updated_at)
+    for sub in subtopics
     if sub.progress
     and sub.progress.status == ProgressStatus.CONFIDENT
     and (updated_at := as_utc(sub.progress.updated_at)) is not None
@@ -136,8 +139,8 @@ if review_due_subs:
     st.divider()
     st.subheader("Due for Review")
     st.caption(f"These subtopics reached Confident status but haven't been practiced in at least {REVIEW_DAYS} days.")
-    for sub in review_due_subs:
-        days_ago = int((datetime.now(timezone.utc) - as_utc(sub.progress.updated_at)).total_seconds() / 86400)
+    for sub, updated_at in review_due_subs:
+        days_ago = int((datetime.now(timezone.utc) - updated_at).total_seconds() / 86400)
         st.warning(f"🔁 **{sub.name}** — last reviewed {days_ago} day{'s' if days_ago != 1 else ''} ago")
     st.divider()
 
@@ -161,6 +164,11 @@ if st.session_state.get("confirm_clear_weak"):
         if st.button("✅ Yes, clear all", key="confirm_clear_yes"):
             for p in weak_progress:
                 p.weak_areas = None
+                session.add(SessionHistory(
+                    subtopic_id=p.subtopic_id,
+                    activity_type="clear_weak_areas",
+                    notes="Weak areas cleared via Clear All",
+                ))
             session.commit()
             st.session_state.pop("confirm_clear_weak", None)
             session.close()
@@ -170,20 +178,20 @@ if st.session_state.get("confirm_clear_weak"):
             st.session_state.pop("confirm_clear_weak", None)
             session.close()
             st.rerun()
-
-if weak_progress:
-    for p in weak_progress:
-        sub = subtopics_by_id.get(p.subtopic_id)
-        if not sub:
-            continue
-        _parts = parse_weak_areas(p.weak_areas)
-        if not _parts:
-            continue
-        with st.expander(f"**{sub.name}** — {len(_parts)} weak area{'s' if len(_parts) != 1 else ''}"):
-            for _item in _parts:
-                st.write(f"- {_item}")
 else:
-    st.info("No weak areas identified yet. Start practicing to get feedback!")
+    if weak_progress:
+        for p in weak_progress:
+            sub = subtopics_by_id.get(p.subtopic_id)
+            if not sub:
+                continue
+            _parts = parse_weak_areas(p.weak_areas)
+            if not _parts:
+                continue
+            with st.expander(f"**{sub.name}** — {len(_parts)} weak area{'s' if len(_parts) != 1 else ''}"):
+                for _item in _parts:
+                    st.write(f"- {_item}")
+    else:
+        st.info("No weak areas identified yet. Start practicing to get feedback!")
 
 st.divider()
 

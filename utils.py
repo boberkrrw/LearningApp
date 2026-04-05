@@ -3,7 +3,9 @@ from datetime import timezone
 
 # Shared threshold for spaced-repetition review; used by Dashboard and Next Step.
 REVIEW_DAYS = 7
-REVIEW_SCORE_BOOST = 15  # Score reduction applied to review-due Confident items
+REVIEW_SCORE_BOOST = 15  # Score reduction for review-due Confident items. Can produce
+                         # negative total scores for foundational subtopics, which
+                         # intentionally prioritises them above any NOT_STARTED item.
 
 
 def as_utc(dt):
