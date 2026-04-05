@@ -40,10 +40,15 @@ jobs:
           use_bedrock: "true"
           claude_args: "--model eu.anthropic.claude-sonnet-4-6"
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          show_full_output: true
           prompt: |
-            Review this pull request for:
+            Review PR #${{ github.event.pull_request.number || github.event.issue.number }} in repo ${{ github.repository }}.
+            
+            Use `git diff origin/master...HEAD` to see the changes.
+            
+            Focus on:
             - Code correctness and potential bugs
             - Security implications
             - Performance considerations
             - Test coverage
+            
+            Post your review as a comment on the PR.
