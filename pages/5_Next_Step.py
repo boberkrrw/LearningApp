@@ -41,10 +41,9 @@ def calculate_next_step_score(sub, progress):
     elif progress.status == ProgressStatus.PRACTICED:
         score += 5
     elif progress.status == ProgressStatus.CONFIDENT:
-        if is_review_due(progress):
-            score -= 15  # surface overdue review items
-        else:
-            score += 100  # deprioritize: Confident, not due for review
+        # Only review-due Confident items reach this function (others are filtered
+        # out before the scoring loop), so this branch always means review-due.
+        score -= 15  # surface for review
 
     # Boost items with weak areas
     if progress and progress.weak_areas:
@@ -83,7 +82,7 @@ else:
     reasons = []
     if is_review:
         updated = as_utc(best_progress.updated_at)
-        days_ago = (datetime.now(timezone.utc) - updated).days if updated else "?"
+        days_ago = int((datetime.now(timezone.utc) - updated).total_seconds() / 86400) if updated else "?"
         reasons.append(f"Previously Confident — due for review after {days_ago} days.")
     if best_sub.priority_score <= 4:
         reasons.append("This is a foundational topic (Tier 1) — other topics build on it.")

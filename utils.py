@@ -25,7 +25,7 @@ def parse_weak_areas(blob: str) -> list:
     parts = []
     for item in re.split(r"[\n,]+", blob or ""):
         item = item.strip()
-        if item and item not in seen:
-            seen.add(item)
+        if item and item.lower() not in seen:
+            seen.add(item.lower())
             parts.append(item)
     return parts

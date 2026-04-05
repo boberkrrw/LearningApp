@@ -129,9 +129,9 @@ review_due_subs = [
 if review_due_subs:
     st.divider()
     st.subheader("Due for Review")
-    st.caption(f"These subtopics reached Confident status but haven't been practiced in over {REVIEW_DAYS} days.")
+    st.caption(f"These subtopics reached Confident status but haven't been practiced in at least {REVIEW_DAYS} days.")
     for sub in review_due_subs:
-        days_ago = (datetime.now(timezone.utc) - as_utc(sub.progress.updated_at)).days
+        days_ago = int((datetime.now(timezone.utc) - as_utc(sub.progress.updated_at)).total_seconds() / 86400)
         st.warning(f"🔁 **{sub.name}** — last reviewed {days_ago} day{'s' if days_ago != 1 else ''} ago")
     st.divider()
 
@@ -157,10 +157,12 @@ if st.session_state.get("confirm_clear_weak"):
                 p.weak_areas = None
             session.commit()
             st.session_state.pop("confirm_clear_weak", None)
+            session.close()
             st.rerun()
     with col_no:
         if st.button("❌ Cancel", key="confirm_clear_no"):
             st.session_state.pop("confirm_clear_weak", None)
+            session.close()
             st.rerun()
 
 if weak_progress:
