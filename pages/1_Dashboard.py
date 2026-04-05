@@ -62,7 +62,7 @@ for topic in topics:
     c_pct = round(t_conf  / t_total * 100)
     p_pct = round(t_prac  / t_total * 100)
     l_pct = round(t_learn / t_total * 100)
-    ns_pct = 100 - c_pct - p_pct - l_pct
+    ns_pct = max(0, 100 - c_pct - p_pct - l_pct)
     topic_names_chart.append(topic.name)
     confident_pcts.append(c_pct)
     practiced_pcts.append(p_pct)
@@ -135,8 +135,7 @@ if review_due_rows:
     for p in review_due_rows:
         sub = subtopics_by_id.get(p.subtopic_id)
         if sub:
-            updated_naive = p.updated_at or _now_naive
-            days_ago = (_now_naive - updated_naive).days
+            days_ago = (_now_naive - p.updated_at).days
             st.warning(f"🔁 **{sub.name}** — last reviewed {days_ago} day{'s' if days_ago != 1 else ''} ago")
     st.divider()
 
@@ -166,7 +165,7 @@ if weak_progress:
             continue
         with st.expander(f"**{sub.name}** — {len(_parts)} weak area{'s' if len(_parts) != 1 else ''}"):
             for _item in _parts:
-                st.markdown(f"- {_item}")
+                st.write(f"- {_item}")
 else:
     st.info("No weak areas identified yet. Start practicing to get feedback!")
 
@@ -180,7 +179,7 @@ with col_a:
 with col_b:
     last_session = session.query(SessionHistory).order_by(SessionHistory.created_at.desc()).first()
     if last_session:
-        sub = subtopics_by_id.get(last_session.subtopic_id) or session.query(Subtopic).get(last_session.subtopic_id)
+        sub = subtopics_by_id.get(last_session.subtopic_id)
         if sub:
             page_map = {"learn": "pages/2_Learn.py", "practice": "pages/3_Practice.py", "evaluate": "pages/4_Evaluate.py"}
             target = page_map.get(last_session.activity_type, "pages/2_Learn.py")

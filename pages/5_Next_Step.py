@@ -15,6 +15,7 @@ all_progress = session.query(Progress).all()
 progress_by_subtopic = {p.subtopic_id: p for p in all_progress}
 all_topics = session.query(Topic).all()
 topics_by_id = {t.id: t for t in all_topics}
+subtopics_by_name = {s.name: s for s in subtopics}
 
 REVIEW_CUTOFF = datetime.now(timezone.utc) - timedelta(days=7)
 
@@ -122,7 +123,6 @@ else:
 
         if deps:
             st.markdown("#### Prerequisites")
-            subtopics_by_name = {s.name: s for s in subtopics}
             for dep in deps:
                 dep_sub = subtopics_by_name.get(dep)
                 if dep_sub and dep_sub.progress:
