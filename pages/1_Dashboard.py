@@ -58,11 +58,12 @@ for topic in topics:
     t_conf  = sum(1 for s in t_subs if s.progress and s.progress.status == ProgressStatus.CONFIDENT)
     t_prac  = sum(1 for s in t_subs if s.progress and s.progress.status == ProgressStatus.PRACTICED)
     t_learn = sum(1 for s in t_subs if s.progress and s.progress.status == ProgressStatus.LEARNING)
-    # Derive not-started as remainder to guarantee bars always sum to 100%
-    c_pct = round(t_conf  / t_total * 100)
-    p_pct = round(t_prac  / t_total * 100)
-    l_pct = round(t_learn / t_total * 100)
-    ns_pct = max(0, 100 - c_pct - p_pct - l_pct)
+    # Use int() (floor) for the first three so their sum never exceeds 100;
+    # derive not-started as the remainder to guarantee bars sum to exactly 100%.
+    c_pct = int(t_conf  / t_total * 100)
+    p_pct = int(t_prac  / t_total * 100)
+    l_pct = int(t_learn / t_total * 100)
+    ns_pct = 100 - c_pct - p_pct - l_pct
     topic_names_chart.append(topic.name)
     confident_pcts.append(c_pct)
     practiced_pcts.append(p_pct)
