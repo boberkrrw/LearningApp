@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from db.database import get_session
 from db.models import Topic, Subtopic, Progress, ProgressStatus, SessionHistory, EvalQuestion, EvalAttempt
 from ai.claude_client import generate_eval_questions, evaluate_text_answers
+from utils import parse_weak_areas
 
 st.title("Evaluate")
 
@@ -303,8 +304,8 @@ if submitted:
 
             # Update progress weak areas
             if progress and all_weak:
-                existing = progress.weak_areas or ""
-                progress.weak_areas = f"{existing}\n{all_weak}".strip()
+                combined = (progress.weak_areas or "") + "\n" + all_weak
+                progress.weak_areas = "\n".join(parse_weak_areas(combined))
 
             # Update progress status based on score
             if progress and score_pct >= 80 and progress.status in (
